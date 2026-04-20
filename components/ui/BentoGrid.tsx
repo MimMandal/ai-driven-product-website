@@ -66,11 +66,56 @@ export const BentoGridItem = ({
   }, []);
 
   const handleCopy = () => {
-    const text = "mimmandal710@gmail.com ";
-    navigator.clipboard.writeText(text);
-    if (isMountedRef.current) {
-      setCopied(true);
-    }
+    const text = "mimmandal710@gmail.com";
+
+    const doFallbackCopy = (value: string) => {
+      try {
+        const el = document.createElement("textarea");
+        el.value = value;
+        el.setAttribute("readonly", "");
+        el.style.position = "absolute";
+        el.style.left = "-9999px";
+        document.body.appendChild(el);
+        const selected =
+          (document.getSelection() || (window as any).getSelection())
+            .rangeCount > 0;
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+        if (selected) {
+          (
+            document.getSelection() || (window as any).getSelection()
+          ).removeAllRanges();
+        }
+        return true;
+      } catch (err) {
+        return false;
+      }
+    };
+
+    (async () => {
+      let ok = false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          ok = true;
+        } else {
+          ok = doFallbackCopy(text);
+        }
+      } catch (e) {
+        ok = doFallbackCopy(text);
+      }
+
+      if (ok && isMountedRef.current) {
+        setCopied(true);
+        setTimeout(() => {
+          if (isMountedRef.current) setCopied(false);
+        }, 2000);
+      } else {
+        // fallback UX: open mailto as last resort
+        window.location.href = `mailto:${text}`;
+      }
+    })();
   };
 
   return (
@@ -185,6 +230,8 @@ export const BentoGridItem = ({
                 {/* <img src="/confetti.gif" alt="confetti" /> */}
                 {animationData && (
                   <Lottie
+                    // force remount when `copied` toggles so autoplay reliably starts
+                    key={copied ? "copied" : "idle"}
                     animationData={animationData}
                     loop={copied}
                     autoplay={copied}
